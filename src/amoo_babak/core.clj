@@ -5,13 +5,13 @@
             [compojure.route :as route]
             [ring.middleware.params :as midpar]
             [clojure.core.async :as async]
+            [datascript.core :as d]
             [amoo-babak.amoo-request :refer :all]))
-
 
 (defn serve [req]
   (def params (:params req))
-  (get-lyrics (params "artist") (params "song") nil)
-  )
+  (get-lyrics (params "artist") (params "song"))
+)
 
 (defroutes app-routes
            (GET "/" request serve)
@@ -24,7 +24,3 @@
   [& args]
   (run-server #'app {:port 6363})
   )
-
-
-
-

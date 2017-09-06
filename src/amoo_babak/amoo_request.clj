@@ -2,17 +2,34 @@
   (:require [org.httpkit.client :as http]
             [hickory.select :as s]
             [clojure.string :as string]
-            [cheshire.core :refer :all])
+            [cheshire.core :refer :all]
+            [datascript.core :as d])
   (:use hickory.core)
   (:import (java.net URLEncoder)))
 
 (def get-url "http://lyrics.wikia.com/wiki/")
 (def search-url "http://lyrics.wikia.com/index.php?action=ajax&rs=getLinkSuggest&format=json&query=")
-(declare search-lyrics)
+(def conn (d/create-conn))
 
 (defn url-encode     [s]     (URLEncoder/encode (str s) "utf8"))
 
-(defn get-lyrics [artist song name]
+(defn get-db [artist song]
+  (let [from-db (vec (remove #{}
+    (d/q '[:find ?l
+             :in $ [?a ?s]
+             :where
+              [?e :artist ?a]
+              [?e :song ?s]
+              [?e :lyrics ?l] ]
+              @conn
+              [artist song])))]
+              (if (empty? from-db)
+                nil
+                ((from-db 0) 0))))
+;seriously? there has to be
+;a better way to get a keyless item out of a set
+
+(defn get-wikia [artist song name]
   (def url (if (nil? name)
              (str get-url
                   (url-encode (string/replace artist #" " "_"))
@@ -32,13 +49,7 @@
    )
 
   (map #(string/replace %1 #"\{([^{]*)\}" "\n") lyrics-vec)
-  (def result (string/join (map #(string/replace %1 #"\{([^{]*)\}" "\n") lyrics-vec)))
-
-  (if (string/blank? result)
-    (search-lyrics song)
-     ((string/split result #"\{") 0))
-
-  )
+  (string/join (map #(string/replace %1 #"\{([^{]*)\}" "\n") lyrics-vec)))
 
 
 (defn search-lyrics [song]
@@ -49,5 +60,18 @@
   (println jsonMap)
   (if (empty? (jsonMap "redirects"))
     "NOT FOUND"
-    (get-lyrics nil nil ((string/split ((jsonMap "suggestions") 0) #" \(") 0)))
+    (get-wikia nil nil ((string/split ((jsonMap "suggestions") 0) #" \(") 0)))
   )
+
+  (defn get-lyrics [artist song]
+    (if-let [db-res (get-db artist song)]
+      db-res
+      (let [result (get-wikia artist song nil)]
+        (if (string/blank? result)
+          (search-lyrics song)
+          (let [final-result ((string/split result #"\{") 0)]
+            (println (d/transact! conn [{:db/id -1
+                              :artist artist
+                              :song song
+                              :lyrics final-result}]))
+            final-result)))))

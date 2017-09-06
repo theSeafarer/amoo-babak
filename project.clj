@@ -8,7 +8,9 @@
                  [http-kit "2.2.0"]
                  [compojure "1.6.0"]
                  [hickory "0.7.1"]
-                 [cheshire "5.8.0"]]
+                 [cheshire "5.8.0"]
+                 [datascript "0.16.2"]
+                 [proto-repl "0.3.1"]]
   :main ^:skip-aot amoo-babak.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
